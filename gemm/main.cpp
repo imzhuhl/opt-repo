@@ -1,0 +1,83 @@
+#include "utils.hpp"
+
+#include <iostream>
+#include <vector>
+#include <chrono>
+
+
+int native_c(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C, int ldc) {
+    for (int i = 0; i < M; i++) {
+        for (int j = 0; j < N; j++) {
+            float tmp = 0.0;
+            for (int p = 0; p < K; p++) {
+                tmp += A[lda * p + i] * B[ldb * j + p];
+            }
+            C[ldc * j + i] = tmp;
+        }
+    }
+    return 0;
+}
+
+
+int my_impl(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C, int ldc) {
+    for (int i = 0; i < M; i++) {
+        for (int j = 0; j < N; j++) {
+            float tmp = 0.0;
+            for (int p = 0; p < K; p++) {
+                tmp += A[lda * p + i] * B[ldb * j + p];
+            }
+            C[ldc * j + i] = tmp;
+        }
+    }
+    return 0;
+}
+
+
+int main() {
+#ifdef DEBUG
+    constexpr int SIZE = 16;
+#else
+    constexpr int SIZE = 128;
+#endif
+    constexpr int M = SIZE;
+    constexpr int K = SIZE;
+    constexpr int N = SIZE;
+
+    // column major
+    int lda = M;
+    int ldb = K;
+    int ldc = M;
+
+    double gflops = 1.0 * M * N * K * 1.0e-09;
+
+    std::vector<float> A(M * K);
+    std::vector<float> B(K * N);
+    std::vector<float> C(M * N, 0);
+
+    std::vector<float> refc(C);
+    std::vector<float> myc(C);
+
+    fill_array(A.data(), M * K, InitVecFlag::RandonValue);
+    fill_array(B.data(), K * N, InitVecFlag::RandonValue);
+
+#ifdef DEBUG
+    printf("Matrix A:\n"); display_matrix(A.data(), A.size(), lda); 
+    printf("Matrix B:\n"); display_matrix(B.data(), B.size(), lda); 
+#endif
+
+    for (int rep = 0; rep < 4; rep++) {
+        auto start = std::chrono::steady_clock::now();
+
+        my_impl(M, K, N, A.data(), lda, B.data(), ldb, myc.data(), ldc);
+
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double, std::milli> elpased = end - start;
+        double time = elpased.count() * 1.0e-3;
+        printf("%.3lf GFLOP/S, %.2lf ms\n", gflops / time, elpased.count());
+    }
+
+    native_c(M, K, N, A.data(), lda, B.data(), ldb, refc.data(), ldc);
+    compare_array(refc.data(), myc.data(), M * N);
+
+    return 0;
+}
