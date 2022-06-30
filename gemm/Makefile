@@ -1,9 +1,9 @@
-MY_IMPL = gemm_1.cpp
+MY_IMPL = gemm_2.cpp
 
 ifndef DEBUG
 	COMPILE_FLAG += -O2
 else
-	COMPILE_FLAG += -g
+	COMPILE_FLAG += -g -DDEBUG
 endif
 
 CXX = g++
