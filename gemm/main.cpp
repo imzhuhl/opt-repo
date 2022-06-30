@@ -6,7 +6,6 @@
 
 int my_impl(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C, int ldc);
 
-// 0.625 GFLOP/S, 1718.93 ms
 int native_c(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C, int ldc) {
     for (int i = 0; i < M; i++) {
         for (int j = 0; j < N; j++) {
