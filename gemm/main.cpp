@@ -1,10 +1,12 @@
 #include "utils.hpp"
 
+#include <chrono>
 #include <iostream>
 #include <vector>
-#include <chrono>
 
+int my_impl(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C, int ldc);
 
+// 0.625 GFLOP/S, 1718.93 ms
 int native_c(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C, int ldc) {
     for (int i = 0; i < M; i++) {
         for (int j = 0; j < N; j++) {
@@ -12,21 +14,7 @@ int native_c(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C
             for (int p = 0; p < K; p++) {
                 tmp += A[lda * p + i] * B[ldb * j + p];
             }
-            C[ldc * j + i] = tmp;
-        }
-    }
-    return 0;
-}
-
-
-int my_impl(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C, int ldc) {
-    for (int i = 0; i < M; i++) {
-        for (int j = 0; j < N; j++) {
-            float tmp = 0.0;
-            for (int p = 0; p < K; p++) {
-                tmp += A[lda * p + i] * B[ldb * j + p];
-            }
-            C[ldc * j + i] = tmp;
+            C[ldc * j + i] += tmp;
         }
     }
     return 0;
@@ -37,7 +25,7 @@ int main() {
 #ifdef DEBUG
     constexpr int SIZE = 16;
 #else
-    constexpr int SIZE = 128;
+    constexpr int SIZE = 1024;
 #endif
     constexpr int M = SIZE;
     constexpr int K = SIZE;
@@ -61,23 +49,34 @@ int main() {
     fill_array(B.data(), K * N, InitVecFlag::RandonValue);
 
 #ifdef DEBUG
-    printf("Matrix A:\n"); display_matrix(A.data(), A.size(), lda); 
-    printf("Matrix B:\n"); display_matrix(B.data(), B.size(), lda); 
+    printf("Matrix A:\n");
+    display_matrix(A.data(), A.size(), lda);
+    printf("Matrix B:\n");
+    display_matrix(B.data(), B.size(), lda);
 #endif
 
     for (int rep = 0; rep < 4; rep++) {
-        auto start = std::chrono::steady_clock::now();
-
+        myc.assign(C.begin(), C.end());
+        
+        auto start = std::chrono::steady_clock::now();        
         my_impl(M, K, N, A.data(), lda, B.data(), ldb, myc.data(), ldc);
-
         auto end = std::chrono::steady_clock::now();
+
         std::chrono::duration<double, std::milli> elpased = end - start;
         double time = elpased.count() * 1.0e-3;
         printf("%.3lf GFLOP/S, %.2lf ms\n", gflops / time, elpased.count());
     }
 
+
     native_c(M, K, N, A.data(), lda, B.data(), ldb, refc.data(), ldc);
     compare_array(refc.data(), myc.data(), M * N);
+
+#ifdef DEBUG
+    printf("Matrix refc:\n");
+    display_matrix(refc.data(), refc.size(), ldc);
+    printf("Matrix myc:\n");
+    display_matrix(myc.data(), myc.size(), ldc);
+#endif 
 
     return 0;
 }

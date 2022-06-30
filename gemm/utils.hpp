@@ -54,10 +54,10 @@ void compare_array(float *a, float *b, int size) {
     for (int i = 0; i < size; i++) {
         diff = std::abs(a[i] - b[i]);
         if (diff > 1e-3) {
-            printf("Check error: %.2f - %.2f", a[i], b[i]);
+            printf("Check error: %.2f vs %.2f\n", a[i], b[i]);
             return;
         }
     }
-    printf("Check pass.");
+    printf("Check pass.\n");
     return;
 }

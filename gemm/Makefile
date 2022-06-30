@@ -1,13 +1,16 @@
-CXX = ~/opt/gcc-12.1.0/bin/g++
-COMPILE_FLAG = -std=c++17
+MY_IMPL = gemm_1.cpp
 
-main: utils.hpp main.cpp
-	$(CXX) $(COMPILE_FLAG) main.cpp -o main.x
+ifndef DEBUG
+	COMPILE_FLAG += -O2
+else
+	COMPILE_FLAG += -g
+endif
 
+CXX = g++
+COMPILE_FLAG += -std=c++17
 
-debug: utils.hpp main.cpp
-	$(CXX) -g -DDEBUG $(COMPILE_FLAG) main.cpp -o main.x
-
+all: utils.hpp $(MY_IMPL) main.cpp
+	$(CXX) $(COMPILE_FLAG) $(MY_IMPL) main.cpp -o main.x
 
 clean:
 	rm *.x
