@@ -3,4 +3,4 @@ numpy:      42.27 GFLOP/S, 50.81 ms
 native_c:   0.625 GFLOP/S, 1718.93 ms
 gemm_1:     1.353 GFLOP/S, 793.69 ms
 gemm_2:     2.199 GFLOP/S, 488.30 ms
-
+gemm_3:     6.433 GFLOP/S, 166.90 ms
