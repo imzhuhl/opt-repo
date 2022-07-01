@@ -1,4 +1,4 @@
-MY_IMPL = gemm_3.cpp
+MY_IMPL = gemm_4.cpp
 
 ifndef DEBUG
 	COMPILE_FLAG += -O2
