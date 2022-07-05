@@ -54,6 +54,12 @@ int main() {
     display_matrix(B.data(), B.size(), lda);
 #endif
 
+    // perf usage
+    // while (true) {
+    //     myc.assign(C.begin(), C.end());
+    //     my_impl(M, K, N, A.data(), lda, B.data(), ldb, myc.data(), ldc);
+    // }
+
     for (int rep = 0; rep < 4; rep++) {
         myc.assign(C.begin(), C.end());
         

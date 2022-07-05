@@ -1,6 +1,6 @@
 
 int my_impl(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C, int ldc) {
-    constexpr int block_size = 16;
+    constexpr int block_size = 4;
     for (int bm = 0; bm < M; bm += block_size) {
         for (int bk = 0; bk < K; bk += block_size) {
             for (int bn = 0; bn < N; bn += block_size) {
