@@ -44,8 +44,8 @@ int main() {
     std::vector<float> refc(C);
     std::vector<float> myc(C);
 
-    fill_array(A.data(), M * K, InitVecFlag::RandonValue);
-    fill_array(B.data(), K * N, InitVecFlag::RandonValue);
+    fill_array(A.data(), M * K, InitVecFlag::IncreaseByOne);
+    fill_array(B.data(), K * N, InitVecFlag::One);
 
 #ifdef DEBUG
     printf("Matrix A:\n");
