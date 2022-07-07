@@ -147,9 +147,9 @@ constexpr int BLOCK_M = 16;
 constexpr int BLOCK_K = 16;
 constexpr int BLOCK_N = 16;
 #else
-constexpr int BLOCK_M = 64;
-constexpr int BLOCK_K = 64;
-constexpr int BLOCK_N = 64;
+constexpr int BLOCK_M = 256;
+constexpr int BLOCK_K = 256;
+constexpr int BLOCK_N = 256;
 #endif
 
 int my_impl(int M, int K, int N, float *A, int lda, float *B, int ldb, float *C, int ldc) {
