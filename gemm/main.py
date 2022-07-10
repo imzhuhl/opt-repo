@@ -4,7 +4,7 @@ import time
 import numpy as np
 import torch
 
-N = 1024
+N = 2048
 
 if __name__ == "__main__":
     A = np.random.randn(N, N).astype(np.float32)

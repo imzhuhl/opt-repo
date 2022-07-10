@@ -37,12 +37,15 @@ void fill_array(float *v, int length, InitVecFlag flag) {
     }
 }
 
-void display_matrix(float *a, int length, int lda) {
-    int col_num = length / lda;
-    int row_num = lda;
-    for (int i = 0; i < row_num; i++) {
-        for (int j = 0; j < col_num; j++) {
-            printf(" %7.2f", a[j * lda + i]);
+/**
+ * Display a row-major matrix
+ * @param M     number of rows of matrix
+ * @param N     number of columns of matrix
+ */
+void display_matrix(float *mat, int M, int N) {
+    for (int i = 0; i < M; i++) {
+        for (int j = 0; j < N; j++) {
+            printf(" %7.2f", mat[i * N + j]);
         }
         printf("\n");
     }
@@ -60,4 +63,11 @@ void compare_array(float *a, float *b, int size) {
     }
     printf("Check pass.\n");
     return;
+}
+
+
+void copy_array(float *src, float *dst, int size) {
+    for (int i = 0; i < size; i++) {
+        dst[i] = src[i];
+    }
 }

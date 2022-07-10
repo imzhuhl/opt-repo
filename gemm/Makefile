@@ -1,4 +1,4 @@
-MY_IMPL = gemm_7.cpp
+MY_IMPL = gemm_1.cpp
 
 ifndef DEBUG
 	COMPILE_FLAG += -O2
@@ -9,8 +9,11 @@ endif
 CXX = g++
 COMPILE_FLAG += -std=c++17
 
-all: utils.hpp $(MY_IMPL) main.cpp
-	$(CXX) $(COMPILE_FLAG) $(MY_IMPL) main.cpp -o main.out
+check: utils.hpp $(MY_IMPL) check.cpp
+	$(CXX) $(COMPILE_FLAG) $(MY_IMPL) check.cpp -o check.out
+
+performance: $(MY_IMPL) performance.cpp
+	$(CXX) -O2 $(MY_IMPL) performance.cpp -o performance.out	
 
 clean:
 	rm *.x
