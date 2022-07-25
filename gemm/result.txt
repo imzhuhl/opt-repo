@@ -3,5 +3,5 @@ fp32 MKN is 2048 * 2048 * 2048
 numpy:      42.63 GFLOP/S, 403.01 ms
 
 gemm_1:     40.18 GFLOP/S, 427.51 ms
-gemm_2:     39.09 GFLOP/S, 439.49 ms
+gemm_2:     42.33 GFLOP/S, 405.81 ms
 gemm_3:     42.34 GFLOP/S, 405.74 ms
