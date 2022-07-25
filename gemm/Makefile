@@ -13,7 +13,7 @@ check: utils.hpp $(MY_IMPL) check.cpp
 	$(CXX) $(COMPILE_FLAG) $(MY_IMPL) check.cpp -o check.out
 
 performance: $(MY_IMPL) performance.cpp
-	$(CXX) -O2 $(MY_IMPL) performance.cpp -o performance.out	
+	$(CXX) $(COMPILE_FLAG) $(MY_IMPL) performance.cpp -o performance.out	
 
 clean:
 	rm *.x

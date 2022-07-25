@@ -1,8 +1,8 @@
 /**
  * Performance of my implementation
  * */
-#include <ctime>
 #include <iostream>
+#include <chrono>
 #include "utils.hpp"
 
 constexpr int MIN_SIZE = 2048;
@@ -32,15 +32,16 @@ int main() {
         for (int rep = 0; rep < 4; rep++) {
             copy_array(C, myc, M * N);
 
-            auto start = clock();
+            auto st = std::chrono::steady_clock::now();
             my_impl(M, K, N, A, B, myc);
-            auto end = clock();
-            double time = (double)(end - start) / CLOCKS_PER_SEC;
-            if (best_time > time) {
-                best_time = time;
+            auto et = std::chrono::steady_clock::now();
+            std::chrono::duration<double, std::milli> elapsed = et - st;
+            double time_ms = elapsed.count();
+            if (best_time > time_ms) {
+                best_time = time_ms;
             }
         }
-        printf("%d, %.3lf, %.2lf\n", cur_size, gflops / best_time, best_time * 1e3);
+        printf("%d, %.3lf, %.2lf\n", cur_size, gflops / (best_time * 1e-3), best_time);
     }
 
     return 0;

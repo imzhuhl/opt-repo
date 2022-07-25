@@ -21,7 +21,7 @@ int native_c(int M, int K, int N, float *A, float *B, float *C) {
 
 int main() {
 #ifdef DEBUG
-    constexpr int SIZE = 4;
+    constexpr int SIZE = 8;
 #else
     constexpr int SIZE = 1024;
 #endif
