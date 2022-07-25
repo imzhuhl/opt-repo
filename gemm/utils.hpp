@@ -3,6 +3,8 @@
 #include <random>
 #include <cmath>
 
+using bfloat16 = uint16_t;
+
 enum class InitVecFlag {
     Zero,
     One,
@@ -69,5 +71,16 @@ void compare_array(float *a, float *b, int size) {
 void copy_array(float *src, float *dst, int size) {
     for (int i = 0; i < size; i++) {
         dst[i] = src[i];
+    }
+}
+
+
+void array_fp32_to_bf16(float *src, bfloat16 *dst, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        dst[i] = *(reinterpret_cast<bfloat16 *>(&src[i]));
+#else
+        dst[i] = *(reinterpret_cast<bfloat16 *>(&src[i])+1);
+#endif
     }
 }
