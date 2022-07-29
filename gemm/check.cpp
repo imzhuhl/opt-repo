@@ -42,9 +42,9 @@ int main() {
 
 #ifdef DEBUG
     printf("Matrix A:\n");
-    display_matrix(A, M, K);
+    display_matrix(A, M, K, ArrangeMode::RowMajor);
     printf("Matrix B:\n");
-    display_matrix(B, K, N);
+    display_matrix(B, K, N, ArrangeMode::RowMajor);
 #endif
 
     native_c(M, K, N, A, B, refc);

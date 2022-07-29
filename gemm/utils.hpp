@@ -12,6 +12,11 @@ enum class InitVecFlag {
     RandonValue,
 };
 
+enum class ArrangeMode {
+    ColMajor,
+    RowMajor,
+};
+
 void fill_array(float *v, int length, InitVecFlag flag) {
     std::random_device rd;
     std::mt19937 mt(rd());
@@ -40,14 +45,19 @@ void fill_array(float *v, int length, InitVecFlag flag) {
 }
 
 /**
- * Display a row-major matrix
+ * Display a matrix
  * @param M     number of rows of matrix
  * @param N     number of columns of matrix
+ * @param flag  elements arrangement
  */
-void display_matrix(float *mat, int M, int N) {
+void display_matrix(float *mat, int M, int N, ArrangeMode flag) {
     for (int i = 0; i < M; i++) {
         for (int j = 0; j < N; j++) {
-            printf(" %7.2f", mat[i * N + j]);
+            if (flag == ArrangeMode::RowMajor) {
+                printf(" %7.2f", mat[i * N + j]);
+            } else if (flag == ArrangeMode::ColMajor) {
+                printf(" %7.2f", mat[j * M + i]);
+            }
         }
         printf("\n");
     }
