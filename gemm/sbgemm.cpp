@@ -1,9 +1,9 @@
-#include <iostream>
-#include <chrono>
 #include <arm_neon.h>
+#include <chrono>
+#include <iostream>
 #include "utils.hpp"
 
-constexpr int MIN_SIZE = 2048;
+constexpr int MIN_SIZE = 256;
 constexpr int STRIDE = 256;
 constexpr int MAX_SIZE = 2048;
 
@@ -12,7 +12,7 @@ float bf16_to_fp32(bfloat16 src) {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
     *(reinterpret_cast<bfloat16 *>(&rst)) = src;
 #else
-    *(reinterpret_cast<bfloat16 *>(&rst)+1) = src;
+    *(reinterpret_cast<bfloat16 *>(&rst) + 1) = src;
 #endif
     return rst;
 }
@@ -30,52 +30,56 @@ int native_c(int M, int K, int N, bfloat16 *A, bfloat16 *B, float *C) {
     return 0;
 }
 
-
-void packA(int M, int N, bfloat16 *A, int lda, bfloat16 *sa) {
-    for (int i = 0; i < M; i += 4) {
+void packA_8(int M, int N, bfloat16 *A, int lda, bfloat16 *sa) {
+    for (int i = 0; i < M; i += 8) {
         for (int j = 0; j < N; j += 4) {
-            sa[0] = A[j * lda + i];
-            sa[1] = A[(j + 1) * lda + i];
-            sa[2] = A[(j + 2) * lda + i];
-            sa[3] = A[(j + 3) * lda + i];
-            sa[4] = A[j * lda + i + 1];
-            sa[5] = A[(j + 1) * lda + i + 1];
-            sa[6] = A[(j + 2) * lda + i + 1];
-            sa[7] = A[(j + 3) * lda + i + 1];
-            sa[8] = A[j * lda + i + 2];
-            sa[9] = A[(j + 1) * lda + i + 2];
-            sa[10] = A[(j + 2) * lda + i + 2];
-            sa[11] = A[(j + 3) * lda + i + 2];
-            sa[12] = A[j * lda + i + 3];
-            sa[13] = A[(j + 1) * lda + i + 3];
-            sa[14] = A[(j + 2) * lda + i + 3];
-            sa[15] = A[(j + 3) * lda + i + 3];
-            sa += 16; 
+            for (int ii = 0; ii < 8; ii++) {
+                for (int jj = 0; jj < 4; jj++) {
+                    sa[ii * 4 + jj] = A[(j + jj) * lda + i + ii];
+                }
+            }
+
+            sa += 32;
         }
     }
 }
 
-void packB(int M, int N, bfloat16 *B, int ldb, bfloat16 *sb) {
+void packA_12(int M, int N, bfloat16 *A, int lda, bfloat16 *sa) {
+    for (int i = 0; i < M; i += 12) {
+        for (int j = 0; j < N; j += 4) {
+            for (int ii = 0; ii < 12; ii++) {
+                for (int jj = 0; jj < 4; jj++) {
+                    sa[ii * 4 + jj] = A[(j + jj) * lda + i + ii];
+                }
+            }
+
+            sa += 48;
+        }
+    }
+}
+
+void packB_4(int M, int N, bfloat16 *B, int ldb, bfloat16 *sb) {
+    uint16x4_t v0;
     for (int j = 0; j < N; j += 4) {
         for (int i = 0; i < M; i += 4) {
-            sb[0] = B[j * ldb + i];
-            sb[1] = B[j * ldb + i + 1];
-            sb[2] = B[j * ldb + i + 2];
-            sb[3] = B[j * ldb + i + 3];
-            sb[4] = B[(j + 1) * ldb + i];
-            sb[5] = B[(j + 1) * ldb + i + 1];
-            sb[6] = B[(j + 1) * ldb + i + 2];
-            sb[7] = B[(j + 1) * ldb + i + 3];
-            sb[8] = B[(j + 2) * ldb + i];
-            sb[9] = B[(j + 2) * ldb + i + 1];
-            sb[10] = B[(j + 2) * ldb + i + 2];
-            sb[11] = B[(j + 2) * ldb + i + 3];
-            sb[12] = B[(j + 3) * ldb + i];
-            sb[13] = B[(j + 3) * ldb + i + 1];
-            sb[14] = B[(j + 3) * ldb + i + 2];
-            sb[15] = B[(j + 3) * ldb + i + 3];
-
+            for (int jj = 0; jj < 4; jj++) {
+                v0 = vld1_u16(reinterpret_cast<uint16_t *>(&B[(j + jj) * ldb + i]));
+                vst1_u16(reinterpret_cast<uint16_t *>(sb + jj * 4), v0);
+            }
             sb += 16;
+        }
+    }
+}
+
+void packB_8(int M, int N, bfloat16 *B, int ldb, bfloat16 *sb) {
+    uint16x4_t v0;
+    for (int j = 0; j < N; j += 8) {
+        for (int i = 0; i < M; i += 4) {
+            for (int jj = 0; jj < 8; jj++) {
+                v0 = vld1_u16(reinterpret_cast<uint16_t *>(&B[(j + jj) * ldb + i]));
+                vst1_u16(reinterpret_cast<uint16_t *>(sb + jj * 4), v0);
+            }
+            sb += 32;
         }
     }
 
@@ -87,61 +91,135 @@ void packB(int M, int N, bfloat16 *B, int ldb, bfloat16 *sb) {
 #endif
 }
 
-void kernel(int M, int K, int N, bfloat16 *sa, bfloat16 *sb, float *sc) {
-    bfloat16x8_t ma0, ma1, mb0, mb1;
-    bfloat16 *ptr_a, *ptr_b;
-    float32x4_t mc00, mc10, mc01, mc11;
-    float32x4_t vc0, vc1, vc2, vc3;
-    
-    float *ptr_c = sc;
-    for (int i = 0; i < M; i += 4) {
-        for (int j = 0; j < N; j += 4) {
-            ptr_a = &sa[i * K];
-            ptr_b = &sb[j * K];
-            mc00 = vdupq_n_f32(0);
-            mc01 = vdupq_n_f32(0);
-            mc10 = vdupq_n_f32(0);
-            mc11 = vdupq_n_f32(0);
-            for (int p = 0; p < K; p += 4) {
-                ma0 = vld1q_bf16(reinterpret_cast<bfloat16_t *>(ptr_a));
-                ma1 = vld1q_bf16(reinterpret_cast<bfloat16_t *>(ptr_a + 8));
-                mb0 = vld1q_bf16(reinterpret_cast<bfloat16_t *>(ptr_b));
-                mb1 = vld1q_bf16(reinterpret_cast<bfloat16_t *>(ptr_b + 8));
-                mc00 = vbfmmlaq_f32(mc00, ma0, mb0);
-                mc01 = vbfmmlaq_f32(mc01, ma0, mb1);
-                mc10 = vbfmmlaq_f32(mc10, ma1, mb0);
-                mc11 = vbfmmlaq_f32(mc11, ma1, mb1);
-                ptr_a += 16;
-                ptr_b += 16;
-            }
-            vc0 = vuzp1q_f32(mc00, mc10);
-            vc1 = vuzp2q_f32(mc00, mc10);
-            vc2 = vuzp1q_f32(mc01, mc11);
-            vc3 = vuzp2q_f32(mc01, mc11);
+#define LOAD_C(M, N) mc##M##N = vdupq_n_f32(0);
 
-            vst1q_f32(ptr_c, vc0);
-            vst1q_f32(ptr_c + 4, vc1);
-            vst1q_f32(ptr_c + 8, vc2);
-            vst1q_f32(ptr_c + 12, vc3);
-            ptr_c += 16;
+#define MATMUL(M, N) mc##M##N = vbfmmlaq_f32(mc##M##N, ma##M, mb##N);
+
+void bfmmla_8x8(int K, bfloat16_t *sa, bfloat16_t *sb, float *sc) {
+    bfloat16x8_t ma0, ma1, ma2, ma3, ma4, ma5, mb0, mb1, mb2, mb3;
+    float32x4_t mc00, mc01, mc02, mc03, 
+                mc10, mc11, mc12, mc13, 
+                mc20, mc21, mc22, mc23, 
+                mc30, mc31, mc32, mc33;
+    float32x4_t vc0, vc1, vc2, vc3, vc4, vc5, vc6, vc7,
+                vc8, vc9, vc10, vc11, vc12, vc13, vc14, vc15;
+
+    bfloat16_t *ptr_a = sa;
+    bfloat16_t *ptr_b = sb;
+    float *ptr_c = sc;
+
+    LOAD_C(0, 0); LOAD_C(0, 1); LOAD_C(0, 2); LOAD_C(0, 3);
+    LOAD_C(1, 0); LOAD_C(1, 1); LOAD_C(1, 2); LOAD_C(1, 3);
+    LOAD_C(2, 0); LOAD_C(2, 1); LOAD_C(2, 2); LOAD_C(2, 3);
+    LOAD_C(3, 0); LOAD_C(3, 1); LOAD_C(3, 2); LOAD_C(3, 3);
+
+    for (int p = 0; p < K; p += 4) {
+        ma0 = vld1q_bf16(ptr_a);
+        ma1 = vld1q_bf16(ptr_a + 8);
+        ma2 = vld1q_bf16(ptr_a + 16);
+        ma3 = vld1q_bf16(ptr_a + 24);
+
+        mb0 = vld1q_bf16(ptr_b);
+        mb1 = vld1q_bf16(ptr_b + 8);
+        mb2 = vld1q_bf16(ptr_b + 16);
+        mb3 = vld1q_bf16(ptr_b + 24);
+
+        MATMUL(0, 0); MATMUL(0, 1); MATMUL(0, 2); MATMUL(0, 3);
+        MATMUL(1, 0); MATMUL(1, 1); MATMUL(1, 2); MATMUL(1, 3);
+        MATMUL(2, 0); MATMUL(2, 1); MATMUL(2, 2); MATMUL(2, 3);
+        MATMUL(3, 0); MATMUL(3, 1); MATMUL(3, 2); MATMUL(3, 3);
+
+        ptr_a += 32;
+        ptr_b += 32;
+    }
+    vc0 = vuzp1q_f32(mc00, mc10);
+    vc1 = vuzp1q_f32(mc20, mc30);
+    vc2 = vuzp2q_f32(mc00, mc10);
+    vc3 = vuzp2q_f32(mc20, mc30);
+
+    vc4 = vuzp1q_f32(mc01, mc11);
+    vc5 = vuzp1q_f32(mc21, mc31);
+    vc6 = vuzp2q_f32(mc01, mc11);
+    vc7 = vuzp2q_f32(mc21, mc31);
+
+    vc8  = vuzp1q_f32(mc02, mc12);
+    vc9  = vuzp1q_f32(mc22, mc32);
+    vc10 = vuzp2q_f32(mc02, mc12);
+    vc11 = vuzp2q_f32(mc22, mc32);
+
+    vc12 = vuzp1q_f32(mc03, mc13);
+    vc13 = vuzp1q_f32(mc23, mc33);
+    vc14 = vuzp2q_f32(mc03, mc13);
+    vc15 = vuzp2q_f32(mc23, mc33);
+
+    vst1q_f32(ptr_c, vc0);
+    vst1q_f32(ptr_c + 4, vc1);
+    vst1q_f32(ptr_c + 8, vc2);
+    vst1q_f32(ptr_c + 12, vc3);
+    vst1q_f32(ptr_c + 16, vc4);
+    vst1q_f32(ptr_c + 20, vc5);
+    vst1q_f32(ptr_c + 24, vc6);
+    vst1q_f32(ptr_c + 28, vc7);
+    vst1q_f32(ptr_c + 32, vc8);
+    vst1q_f32(ptr_c + 36, vc9);
+    vst1q_f32(ptr_c + 40, vc10);
+    vst1q_f32(ptr_c + 44, vc11);
+    vst1q_f32(ptr_c + 48, vc12);
+    vst1q_f32(ptr_c + 52, vc13);
+    vst1q_f32(ptr_c + 56, vc14);
+    vst1q_f32(ptr_c + 60, vc15);
+}
+
+void merge_8x8(float *C, int ldc, float *sc) {
+    float *output_c;
+    float32x4_t src_vc, rst_vc;
+    for (int j = 0; j < 8; j++) {
+        output_c = C + j * ldc;
+        for (int i = 0; i < 8; i += 4) {
+            src_vc = vld1q_f32(sc + j * 8 + i);
+            rst_vc = vld1q_f32(output_c + i);
+            rst_vc = vaddq_f32(src_vc, rst_vc);
+            vst1q_f32(output_c + i, rst_vc);
         }
     }
 }
 
-void merge(int M, int N, float *sc, float *C, int ldc) {
-    float32x4_t src_c, dst_c;
-    float *ptr_c = sc;
-    for (int i = 0; i < M; i += 4) {
-        for (int j = 0; j < N; j++) {
-            src_c = vld1q_f32(&C[j * ldc + i]);
-            dst_c = vld1q_f32(ptr_c);
-            ptr_c += 4;
-            dst_c = vaddq_f32(dst_c, src_c);
-            vst1q_f32(&C[j * ldc + i], dst_c); 
+void merge_12x8(float *C, int ldc, float *sc) {
+    float *output_c;
+    float32x4_t src_vc, rst_vc;
+    for (int j = 0; j < 8; j++) {
+        output_c = C + j * ldc;
+        for (int i = 0; i < 12; i += 4) {
+            src_vc = vld1q_f32(sc + j * 8 + i);
+            rst_vc = vld1q_f32(output_c + i);
+            rst_vc = vaddq_f32(src_vc, rst_vc);
+            vst1q_f32(output_c + i, rst_vc);
         }
     }
 }
 
+void kernel(int M, int K, int N, bfloat16 *sa, bfloat16 *sb, float *C, int ldc) {
+    float *tmpc = (float *)malloc(12 * 8 * sizeof(float));
+
+    bfloat16x8_t ma0, ma1, ma2, ma3, mb0, mb1, mb2, mb3;
+    bfloat16_t *ptr_a, *ptr_b;
+    float *ptr_c;
+
+    float32x4_t mc00, mc01, mc02, mc03, mc10, mc11, mc12, mc13, mc20, mc21, mc22, mc23, mc30, mc31,
+        mc32, mc33;
+    float32x4_t vc0, vc1, vc2, vc3, vc4, vc5, vc6, vc7, vc8, vc9, vc10, vc11, vc12, vc13, vc14,
+        vc15;
+
+    for (int i = 0; i < M; i += 8) {
+        for (int j = 0; j < N; j += 8) {
+            bfmmla_8x8(K, reinterpret_cast<bfloat16_t *>(&sa[i * K]),
+                        reinterpret_cast<bfloat16_t *>(&sb[j * K]), tmpc);
+            merge_8x8(C + j * ldc + i, ldc, tmpc);
+        }
+    }
+
+    free(tmpc);
+}
 
 int my_impl(int M, int K, int N, bfloat16 *A, bfloat16 *B, float *C) {
 #ifdef DEBUG
@@ -154,30 +232,25 @@ int my_impl(int M, int K, int N, bfloat16 *A, bfloat16 *B, float *C) {
     constexpr int BLOCK_N = 256;
 #endif
 
-    bfloat16 *buffer = (bfloat16 *) malloc ((BLOCK_M * BLOCK_K + BLOCK_K * BLOCK_N) * sizeof(bfloat16));
+    bfloat16 *buffer =
+        (bfloat16 *)malloc((BLOCK_M * BLOCK_K + BLOCK_K * BLOCK_N) * sizeof(bfloat16));
 
     bfloat16 *sa = buffer;
     bfloat16 *sb = buffer + BLOCK_M * BLOCK_K;
 
-    float *tmpc = (float *) malloc(BLOCK_M * BLOCK_N * sizeof(float));
-
     for (int i = 0; i < M; i += BLOCK_M) {
         for (int p = 0; p < K; p += BLOCK_K) {
-            packA(BLOCK_M, BLOCK_K, A + p * M + i, M, sa);
+            packA_8(BLOCK_M, BLOCK_K, A + p * M + i, M, sa);
             for (int j = 0; j < N; j += BLOCK_N) {
-                packB(BLOCK_K, BLOCK_N, B + j * K + p, K, sb);
-                // kernel(BLOCK_M, BLOCK_K, BLOCK_N, sa, sb, C + j * M + i, M);
-                kernel(BLOCK_M, BLOCK_K, BLOCK_N, sa, sb, tmpc);
-                merge(BLOCK_M, BLOCK_N, tmpc, C + j * M + i, M);
+                packB_8(BLOCK_K, BLOCK_N, B + j * K + p, K, sb);
+                kernel(BLOCK_M, BLOCK_K, BLOCK_N, sa, sb, C + j * M + i, M);
             }
         }
     }
 
     free(buffer);
-    free(tmpc);
     return 0;
 }
-
 
 int check() {
 #ifdef DEBUG
@@ -226,7 +299,7 @@ int check() {
     display_matrix(refc, M, N, ArrangeMode::ColMajor);
     printf("Matrix myc:\n");
     display_matrix(myc, M, N, ArrangeMode::ColMajor);
-#endif 
+#endif
 
     free(FA);
     free(FB);
@@ -238,8 +311,8 @@ int check() {
 }
 
 /**
- * Column-major matrix, because it is easy for sbgemm implementation
- */ 
+ * Column-major matrix
+ */
 int main() {
 #ifdef CHECK
     check();
@@ -286,5 +359,4 @@ int main() {
         free(myc);
     }
 #endif
-
 }
