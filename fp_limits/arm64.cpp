@@ -107,8 +107,69 @@ void run_bfmmla() {
     printf("BFMMLA: %.3lf GFLOP/S\n", best_gflops);
 }
 
+void kernel_add(float *sa, float *sb) {
+    __asm__ __volatile__(
+        "ptrue p0.b\n"
+        "mov x20, %[sa]\n"
+        "mov x21, %[sb]\n"
+
+        "ld1w { z0.s }, p0/Z, [x20, #1, MUL VL]\n"
+        "ld1w { z1.s }, p0/Z, [x20, #2, MUL VL]\n"
+        "ld1w { z2.s }, p0/Z, [x20, #3, MUL VL]\n"
+        "ld1w { z3.s }, p0/Z, [x20, #4, MUL VL]\n"
+        "ld1w { z4.s }, p0/Z, [x20, #5, MUL VL]\n"
+        "ld1w { z5.s }, p0/Z, [x20, #6, MUL VL]\n"
+
+        "ld1w { z10.s }, p0/Z, [x21, #1, MUL VL]\n"
+        "ld1w { z11.s }, p0/Z, [x21, #2, MUL VL]\n"
+        "ld1w { z12.s }, p0/Z, [x21, #3, MUL VL]\n"
+        "ld1w { z13.s }, p0/Z, [x21, #4, MUL VL]\n"
+        "ld1w { z14.s }, p0/Z, [x21, #5, MUL VL]\n"
+        "ld1w { z15.s }, p0/Z, [x21, #6, MUL VL]\n"
+
+        "fadd z0.s, z0.s, z10.s\n"
+        "fadd z1.s, z1.s, z11.s\n"
+        "fadd z2.s, z2.s, z12.s\n"
+        "fadd z3.s, z3.s, z13.s\n"
+        "fadd z4.s, z4.s, z14.s\n"
+        "fadd z5.s, z5.s, z15.s\n"
+
+        "st1w { z0.s }, p0, [x20, #1, MUL VL]\n"
+        "st1w { z1.s }, p0, [x20, #2, MUL VL]\n"
+        "st1w { z2.s }, p0, [x20, #3, MUL VL]\n"
+        "st1w { z3.s }, p0, [x20, #4, MUL VL]\n"
+        "st1w { z4.s }, p0, [x20, #5, MUL VL]\n"
+        "st1w { z5.s }, p0, [x20, #6, MUL VL]\n"
+
+        : [sa] "+r"(sa), [sb] "+r"(sb)
+        :
+        : "cc", "memory", "x20", "x21", "p0", "z0", "z1", "z2", "z3", "z4", "z5", "z10", "z11",
+          "z12", "z13", "z14", "z15");
+}
+
+void run_ld_st_add() {
+    float *sa = (float *)malloc(2048);
+    float *sb = (float *)malloc(2048);
+
+    double flop = 2048;
+    double best_gflops = 0.0;
+    for (int rep = 0; rep < 5; rep++) {
+        auto st = std::chrono::steady_clock::now();
+        kernel_add(sa, sb);
+        auto et = std::chrono::steady_clock::now();
+        std::chrono::duration<double, std::milli> elapsed = et - st;
+
+        double gflops = (flop * 1e-9) / (elapsed.count() * 1e-3);
+        if (best_gflops < gflops) {
+            best_gflops = gflops;
+        }
+    }
+    printf("ld_st_add: %.3lf GFLOP/S\n", best_gflops);
+}
+
 int main() {
     run_fmla();
     run_bfmmla();
+    run_ld_st_add();
     return 0;
 }
