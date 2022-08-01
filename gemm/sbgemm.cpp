@@ -171,29 +171,65 @@ void bfmmla_8x8(int K, bfloat16_t *sa, bfloat16_t *sb, float *sc) {
 }
 
 void merge_8x8(float *C, int ldc, float *sc) {
-    float *output_c;
-    float32x4_t src_vc, rst_vc;
-    for (int j = 0; j < 8; j++) {
-        output_c = C + j * ldc;
+    float *out_c0, *out_c1, *out_c2, *out_c3;
+    float32x4_t vc0, vc1, vc2, vc3, vc4, vc5, vc6, vc7;
+    for (int j = 0; j < 8; j += 4) {
+        out_c0 = C + j * ldc;
+        out_c1 = out_c0 + ldc;
+        out_c2 = out_c1 + ldc;
+        out_c3 = out_c2 + ldc;
         for (int i = 0; i < 8; i += 4) {
-            src_vc = vld1q_f32(sc + j * 8 + i);
-            rst_vc = vld1q_f32(output_c + i);
-            rst_vc = vaddq_f32(src_vc, rst_vc);
-            vst1q_f32(output_c + i, rst_vc);
+            vc0 = vld1q_f32(out_c0 + i);
+            vc1 = vld1q_f32(out_c1 + i);
+            vc2 = vld1q_f32(out_c2 + i);
+            vc3 = vld1q_f32(out_c3 + i);
+
+            vc4 = vld1q_f32(sc + j * 8 + i);
+            vc5 = vld1q_f32(sc + (j + 1) * 8 + i);
+            vc6 = vld1q_f32(sc + (j + 2) * 8 + i);
+            vc7 = vld1q_f32(sc + (j + 3) * 8 + i);
+
+            vc0 = vaddq_f32(vc0, vc4);
+            vc1 = vaddq_f32(vc1, vc5);
+            vc2 = vaddq_f32(vc2, vc6);
+            vc3 = vaddq_f32(vc3, vc7);
+
+            vst1q_f32(out_c0 + i, vc0);
+            vst1q_f32(out_c1 + i, vc1);
+            vst1q_f32(out_c2 + i, vc2);
+            vst1q_f32(out_c3 + i, vc3);
         }
     }
 }
 
 void merge_12x8(float *C, int ldc, float *sc) {
-    float *output_c;
-    float32x4_t src_vc, rst_vc;
-    for (int j = 0; j < 8; j++) {
-        output_c = C + j * ldc;
+    float *out_c0, *out_c1, *out_c2, *out_c3;
+    float32x4_t vc0, vc1, vc2, vc3, vc4, vc5, vc6, vc7;
+    for (int j = 0; j < 8; j += 4) {
+        out_c0 = C + j * ldc;
+        out_c1 = out_c0 + ldc;
+        out_c2 = out_c1 + ldc;
+        out_c3 = out_c2 + ldc;
         for (int i = 0; i < 12; i += 4) {
-            src_vc = vld1q_f32(sc + j * 8 + i);
-            rst_vc = vld1q_f32(output_c + i);
-            rst_vc = vaddq_f32(src_vc, rst_vc);
-            vst1q_f32(output_c + i, rst_vc);
+            vc0 = vld1q_f32(out_c0 + i);
+            vc1 = vld1q_f32(out_c1 + i);
+            vc2 = vld1q_f32(out_c2 + i);
+            vc3 = vld1q_f32(out_c3 + i);
+
+            vc4 = vld1q_f32(sc + j * 8 + i);
+            vc5 = vld1q_f32(sc + (j + 1) * 8 + i);
+            vc6 = vld1q_f32(sc + (j + 2) * 8 + i);
+            vc7 = vld1q_f32(sc + (j + 3) * 8 + i);
+
+            vc0 = vaddq_f32(vc0, vc4);
+            vc1 = vaddq_f32(vc1, vc5);
+            vc2 = vaddq_f32(vc2, vc6);
+            vc3 = vaddq_f32(vc3, vc7);
+
+            vst1q_f32(out_c0 + i, vc0);
+            vst1q_f32(out_c1 + i, vc1);
+            vst1q_f32(out_c2 + i, vc2);
+            vst1q_f32(out_c3 + i, vc3);
         }
     }
 }
