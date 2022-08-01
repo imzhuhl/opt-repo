@@ -107,25 +107,30 @@ void run_bfmmla() {
     printf("BFMMLA: %.3lf GFLOP/S\n", best_gflops);
 }
 
-void kernel_add(float *sa, float *sb) {
+void kernel_add(float *sa, float *sb, int cnt) {
     __asm__ __volatile__(
         "ptrue p0.b\n"
+        "mov x0, %[cnt]\n"
         "mov x20, %[sa]\n"
         "mov x21, %[sb]\n"
+        "1:"
+        "ld1w { z0.s }, p0/Z, [x20]\n"
+        "ld1w { z1.s }, p0/Z, [x20, #1, MUL VL]\n"
+        "ld1w { z2.s }, p0/Z, [x20, #2, MUL VL]\n"
+        "ld1w { z3.s }, p0/Z, [x20, #3, MUL VL]\n"
+        "ld1w { z4.s }, p0/Z, [x20, #4, MUL VL]\n"
+        "ld1w { z5.s }, p0/Z, [x20, #5, MUL VL]\n"
+        "ld1w { z6.s }, p0/Z, [x20, #6, MUL VL]\n"
+        "ld1w { z7.s }, p0/Z, [x20, #7, MUL VL]\n"
 
-        "ld1w { z0.s }, p0/Z, [x20, #1, MUL VL]\n"
-        "ld1w { z1.s }, p0/Z, [x20, #2, MUL VL]\n"
-        "ld1w { z2.s }, p0/Z, [x20, #3, MUL VL]\n"
-        "ld1w { z3.s }, p0/Z, [x20, #4, MUL VL]\n"
-        "ld1w { z4.s }, p0/Z, [x20, #5, MUL VL]\n"
-        "ld1w { z5.s }, p0/Z, [x20, #6, MUL VL]\n"
-
-        "ld1w { z10.s }, p0/Z, [x21, #1, MUL VL]\n"
-        "ld1w { z11.s }, p0/Z, [x21, #2, MUL VL]\n"
-        "ld1w { z12.s }, p0/Z, [x21, #3, MUL VL]\n"
-        "ld1w { z13.s }, p0/Z, [x21, #4, MUL VL]\n"
-        "ld1w { z14.s }, p0/Z, [x21, #5, MUL VL]\n"
-        "ld1w { z15.s }, p0/Z, [x21, #6, MUL VL]\n"
+        "ld1w { z10.s }, p0/Z, [x21]\n"
+        "ld1w { z11.s }, p0/Z, [x21, #1, MUL VL]\n"
+        "ld1w { z12.s }, p0/Z, [x21, #2, MUL VL]\n"
+        "ld1w { z13.s }, p0/Z, [x21, #3, MUL VL]\n"
+        "ld1w { z14.s }, p0/Z, [x21, #4, MUL VL]\n"
+        "ld1w { z15.s }, p0/Z, [x21, #5, MUL VL]\n"
+        "ld1w { z16.s }, p0/Z, [x21, #6, MUL VL]\n"
+        "ld1w { z17.s }, p0/Z, [x21, #7, MUL VL]\n"
 
         "fadd z0.s, z0.s, z10.s\n"
         "fadd z1.s, z1.s, z11.s\n"
@@ -133,29 +138,39 @@ void kernel_add(float *sa, float *sb) {
         "fadd z3.s, z3.s, z13.s\n"
         "fadd z4.s, z4.s, z14.s\n"
         "fadd z5.s, z5.s, z15.s\n"
+        "fadd z6.s, z6.s, z16.s\n"
+        "fadd z7.s, z7.s, z17.s\n"
 
-        "st1w { z0.s }, p0, [x20, #1, MUL VL]\n"
-        "st1w { z1.s }, p0, [x20, #2, MUL VL]\n"
-        "st1w { z2.s }, p0, [x20, #3, MUL VL]\n"
-        "st1w { z3.s }, p0, [x20, #4, MUL VL]\n"
-        "st1w { z4.s }, p0, [x20, #5, MUL VL]\n"
-        "st1w { z5.s }, p0, [x20, #6, MUL VL]\n"
+        "st1w { z0.s }, p0, [x20]\n"
+        "st1w { z1.s }, p0, [x20, #1, MUL VL]\n"
+        "st1w { z2.s }, p0, [x20, #2, MUL VL]\n"
+        "st1w { z3.s }, p0, [x20, #3, MUL VL]\n"
+        "st1w { z4.s }, p0, [x20, #4, MUL VL]\n"
+        "st1w { z5.s }, p0, [x20, #5, MUL VL]\n"
+        "st1w { z6.s }, p0, [x20, #6, MUL VL]\n"
+        "st1w { z7.s }, p0, [x20, #7, MUL VL]\n"
+
+        "add x20, x20, #128\n"
+        "add x21, x21, #128\n"
+        "subs x0, x0, #32\n"
+        "bne 1b\n"
 
         : [sa] "+r"(sa), [sb] "+r"(sb)
-        :
-        : "cc", "memory", "x20", "x21", "p0", "z0", "z1", "z2", "z3", "z4", "z5", "z10", "z11",
-          "z12", "z13", "z14", "z15");
+        : [cnt] "r"(cnt)
+        : "cc", "memory", "x0", "x20", "x21", "p0", "z0", "z1", "z2", "z3", "z4", "z5", "z6", "z7",
+          "z10", "z11", "z12", "z13", "z14", "z15", "z16", "z17");
 }
 
 void run_ld_st_add() {
-    float *sa = (float *)malloc(2048);
-    float *sb = (float *)malloc(2048);
+    int length = 2048 * 2048;
+    float *sa = (float *)malloc(length * sizeof(float));
+    float *sb = (float *)malloc(length * sizeof(float));
 
-    double flop = 2048;
+    double flop = length;
     double best_gflops = 0.0;
     for (int rep = 0; rep < 5; rep++) {
         auto st = std::chrono::steady_clock::now();
-        kernel_add(sa, sb);
+        kernel_add(sa, sb, length);
         auto et = std::chrono::steady_clock::now();
         std::chrono::duration<double, std::milli> elapsed = et - st;
 
