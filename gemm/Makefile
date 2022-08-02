@@ -1,4 +1,4 @@
-MY_IMPL = gemm_1.cpp
+MY_IMPL = gemm_4.cpp
 
 ifndef DEBUG
 	COMPILE_FLAG += -O2
@@ -21,6 +21,9 @@ performance: $(MY_IMPL) performance.cpp
 
 sbgemm:
 	$(CXX) $(COMPILE_FLAG) -march=armv8.6-a sbgemm.cpp -o sbgemm.out
+
+acl_sbgemm:
+	$(CXX) $(COMPILE_FLAG) -march=armv8.6-a acl_sbgemm.cpp -o acl_sbgemm.out
 
 clean:
 	rm *.x

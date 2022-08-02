@@ -1,7 +1,12 @@
 fp32 MKN is 2048 * 2048 * 2048
 
-numpy:      42.63 GFLOP/S, 403.01 ms
+numpy:      42.13 GFLOP/S, 407.82 ms
 
-gemm_1:     40.18 GFLOP/S, 427.51 ms
-gemm_2:     42.33 GFLOP/S, 405.81 ms
-gemm_3:     42.34 GFLOP/S, 405.74 ms
+gemm_1:     40.01 GFLOP/S, 429.35 ms
+gemm_2:     41.90 GFLOP/S, 410.02 ms
+gemm_3:     42.05 GFLOP/S, 408.49 ms
+gemm_4:     41.09 GFLOP/S, 418.05 ms 
+
+sbgemm:     136.31 GFLOP/S, 126.03 ms
+acl_sbgemm: 120.17 GFLOP/S
+
